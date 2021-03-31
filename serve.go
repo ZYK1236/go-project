@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"runtime"
 	"sync"
 )
 
@@ -38,7 +40,7 @@ func (s *Serve) ListenMessager() {
 		msg := <-s.Message
 		s.MapLock.Lock()
 		for _, usr := range s.OnlineUserMap {
-			usr.C <- msg
+			usr.UserC <- msg
 		}
 		s.MapLock.Unlock()
 	}
@@ -47,13 +49,31 @@ func (s *Serve) ListenMessager() {
 // conn handler 逻辑代码
 func (s *Serve) Handle(conn net.Conn) {
 	// 用户上线，添加进 OnlineUserMap
-	user := NewUser(conn)
-	s.MapLock.Lock()
-	s.OnlineUserMap[user.Name] = user
-	s.MapLock.Unlock()
+	user := NewUser(conn, s)
+	user.Online()
 
-	// 广播用户上线消息
-	s.BroadCast(user, "上线")
+	// 接受客户端发的消息
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			// 读消息，如果读的消息长度为空，则下线
+			len, err := conn.Read(buf)
+
+			if len == 1 {
+				user.Offline()
+				runtime.Goexit()
+			}
+			if err != nil && err != io.EOF {
+				fmt.Println("conn.Read err:", err)
+			}
+
+			msg := string(buf[:len-1])
+			user.sendMsg(msg)
+		}
+	}()
+
+	// 堵塞
+	select {}
 }
 
 // 启动 serve
