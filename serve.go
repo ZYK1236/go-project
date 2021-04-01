@@ -57,7 +57,7 @@ func (s *Serve) Handle(conn net.Conn) {
 	isLive := make(chan bool)
 
 	// 设定时器
-	timer := time.NewTimer(15 * time.Second)
+	timer := time.NewTimer(60 * time.Second)
 
 	// 接受客户端发的消息
 	go func() {
@@ -85,7 +85,7 @@ func (s *Serve) Handle(conn net.Conn) {
 		select {
 		case <-isLive:
 			// 重置定时器
-			timer.Reset(15 * time.Second)
+			timer.Reset(60 * time.Second)
 
 		case <-timer.C:
 			// 超时，踢出

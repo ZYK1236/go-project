@@ -39,6 +39,7 @@ func (u *User) Online() {
 
 	// 广播用户上线消息
 	u.Server.BroadCast(u, "上线")
+	u.writeMsg("请注意，如果持续一分钟不发送信息，会被强制下线..")
 }
 
 // 用户下线
@@ -86,6 +87,30 @@ func (u *User) sendMsg(msg string) {
 
 			u.writeMsg("成功修改名字，新名字为:" + newName)
 		}
+
+		return
+	} else if len(msg) > 4 && msg[:3] == "to|" {
+		// 私聊功能，格式为: to|zyk|yourMessage
+		msgArr := strings.Split(msg, "|")
+		targetName := msgArr[1]
+
+		if targetName == "" {
+			u.writeMsg("格式不对")
+			return
+		}
+		remoteUser, ok := u.Server.OnlineUserMap[targetName]
+		if !ok {
+			u.writeMsg("用户不存在")
+			return
+		}
+
+		message := msgArr[2]
+		if message == "" {
+			u.writeMsg("无发送内容")
+			return
+		}
+
+		remoteUser.writeMsg(u.Name + "对您说" + message)
 
 		return
 	}
