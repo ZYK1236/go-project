@@ -1,2 +1,2 @@
-# go-project
-一个基于go的简单后台项目
+# Go-project
+一个基于Go的简单后台项目
