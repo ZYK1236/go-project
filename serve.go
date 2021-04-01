@@ -30,7 +30,7 @@ func NewServer(ip string, port int) *Serve {
 
 // 将消息存进负责消息广播的通道
 func (s *Serve) BroadCast(user *User, msg string) {
-	sendMsg := user.Name + msg
+	sendMsg := user.Name + ":" + msg
 	s.Message <- sendMsg
 }
 
@@ -58,8 +58,7 @@ func (s *Serve) Handle(conn net.Conn) {
 		for {
 			// 读消息，如果读的消息长度为空，则下线
 			len, err := conn.Read(buf)
-
-			if len == 1 {
+			if len == 0 {
 				user.Offline()
 				runtime.Goexit()
 			}

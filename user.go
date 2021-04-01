@@ -52,6 +52,20 @@ func (u *User) Offline() {
 
 // 用户消息传递
 func (u *User) sendMsg(msg string) {
+	// 查询当前在线用户
+	if msg == "who" {
+		u.Server.MapLock.Lock()
+		u.Conn.Write([]byte("当前上线用户有:\n"))
+
+		for _, usr := range u.Server.OnlineUserMap {
+			onlineUsr := usr.Address
+			u.Conn.Write([]byte(onlineUsr + "\n"))
+		}
+
+		u.Server.MapLock.Unlock()
+
+		return
+	}
 	u.Server.BroadCast(u, msg)
 }
 
