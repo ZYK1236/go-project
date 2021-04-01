@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"strings"
 )
 
 type User struct {
@@ -50,22 +51,45 @@ func (u *User) Offline() {
 	u.Server.BroadCast(u, "下线")
 }
 
+// 当前用户下输出信息
+func (u *User) writeMsg(msg string) {
+	u.Conn.Write([]byte(msg + "\n"))
+}
+
 // 用户消息传递
 func (u *User) sendMsg(msg string) {
 	// 查询当前在线用户
 	if msg == "who" {
+		u.writeMsg("当前上线用户有:")
+
 		u.Server.MapLock.Lock()
-		u.Conn.Write([]byte("当前上线用户有:\n"))
-
 		for _, usr := range u.Server.OnlineUserMap {
-			onlineUsr := usr.Address
-			u.Conn.Write([]byte(onlineUsr + "\n"))
+			onlineUsr := usr.Address + "_" + usr.Name
+			u.writeMsg(onlineUsr)
 		}
-
 		u.Server.MapLock.Unlock()
 
 		return
+	} else if len(msg) > 7 && msg[:7] == "rename|" {
+		// 修改用户名，修改格式 example: rename|zyk
+		newName := strings.Split(msg, "|")[1]
+		_, ok := u.Server.OnlineUserMap[newName]
+
+		if ok {
+			u.writeMsg("有用户重名了")
+		} else {
+			u.Server.MapLock.Lock()
+			delete(u.Server.OnlineUserMap, u.Name)
+			u.Name = newName
+			u.Server.OnlineUserMap[newName] = u
+			u.Server.MapLock.Unlock()
+
+			u.writeMsg("成功修改名字，新名字为:" + newName)
+		}
+
+		return
 	}
+
 	u.Server.BroadCast(u, msg)
 }
 

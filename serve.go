@@ -6,6 +6,7 @@ import (
 	"net"
 	"runtime"
 	"sync"
+	"time"
 )
 
 type Serve struct {
@@ -52,6 +53,12 @@ func (s *Serve) Handle(conn net.Conn) {
 	user := NewUser(conn, s)
 	user.Online()
 
+	// 监控当前用户是否活跃的 channel
+	isLive := make(chan bool)
+
+	// 设定时器
+	timer := time.NewTimer(15 * time.Second)
+
 	// 接受客户端发的消息
 	go func() {
 		buf := make([]byte, 4096)
@@ -68,11 +75,33 @@ func (s *Serve) Handle(conn net.Conn) {
 
 			msg := string(buf[:len-1])
 			user.sendMsg(msg)
+
+			isLive <- true
 		}
 	}()
 
-	// 堵塞
-	select {}
+	// 阻塞 + 超时处理
+	for {
+		select {
+		case <-isLive:
+			// 重置定时器
+			timer.Reset(15 * time.Second)
+
+		case <-timer.C:
+			// 超时，踢出
+			user.sendMsg("因为超时被踢了，真可怜")
+
+			// 链接释放
+			conn.Write([]byte("你已下线...\n"))
+			conn.Close()
+
+			// 释放该用户资源
+			close(user.UserC)
+
+			runtime.Goexit()
+		}
+	}
+
 }
 
 // 启动 serve
