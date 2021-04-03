@@ -3,7 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"net"
+	"os"
 )
 
 type Client struct {
@@ -48,23 +50,70 @@ func Menu(client *Client) bool {
 	fmt.Println("1. 公共聊天模式")
 	fmt.Println("2. 私人聊天模式")
 	fmt.Println("3. 重命名")
-	fmt.Println("0. 退出")
+	fmt.Println("9. 退出")
 
 	fmt.Scanln(&flag)
+	fmt.Println("flag:", flag)
 
-	if flag >= 0 && flag <= 3 {
+	if flag >= 1 && flag <= 3 {
 		client.flag = flag
 		fmt.Println("你选择了:", flag)
 		return true
+	} else if flag == 9 {
+		client.flag = 9
+		fmt.Println("退出")
+		return true
 	} else {
-		fmt.Println("输入合法的选项")
+		fmt.Println(">>>>> 请输入合法的选项 <<<<<<")
 		return false
 	}
 }
 
+func (c *Client) PublicChat() {
+	var chatMsg string
+
+	fmt.Println(">>>>>> 输入消息:")
+	fmt.Scanln(&chatMsg)
+
+	for chatMsg != "exit" {
+		if len(chatMsg) != 0 {
+			sendMessage := chatMsg + "\n"
+			_, err := c.Conn.Write([]byte(sendMessage))
+			if err != nil {
+				fmt.Println("c.Conn.Write error:", err.Error())
+				break
+			}
+		}
+		chatMsg = ""
+		fmt.Println(">>>>>> 输入消息:")
+		fmt.Scanln(&chatMsg)
+	}
+}
+
+// update name
+func (c *Client) UpdateName() bool {
+	fmt.Println(">>>>>> 输入你的新用户名:")
+	fmt.Scanln(&c.Name)
+
+	sendMessage := "rename|" + c.Name + "\n"
+	_, err := c.Conn.Write([]byte(sendMessage))
+	if err != nil {
+		fmt.Println("c.Conn.Write error:", err.Error())
+		return false
+	}
+
+	return true
+}
+
+// 处理 server 返回的数据，并返回给用户
+func (c *Client) DealResponseData() {
+	// 一直等待 conn 有无消息写入，如果有，打印出来
+	io.Copy(os.Stdout, c.Conn)
+}
+
 func (c *Client) Run() {
 	for {
-		if c.flag != 0 {
+		if c.flag != 9 {
 			for {
 				isChoose := Menu(c)
 				if isChoose {
@@ -76,10 +125,12 @@ func (c *Client) Run() {
 			switch c.flag {
 			case 1:
 				fmt.Println(">>>>>>>> choose 公聊模式 <<<<<<<<")
+				c.PublicChat()
 			case 2:
 				fmt.Println(">>>>>>>> choose 私聊模式 <<<<<<<<")
 			case 3:
 				fmt.Println(">>>>>>>> choose 重新命名 <<<<<<<<")
+				c.UpdateName()
 			}
 		} else {
 			break
@@ -96,6 +147,10 @@ func main() {
 		fmt.Println(">>>>>> NewClient error <<<<<<<<")
 		return
 	}
+
+	// 处理 server 返回的消息
+	go client.DealResponseData()
+
 	fmt.Println("NewClient success")
 	client.Run()
 }
